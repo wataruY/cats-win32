@@ -4,7 +4,7 @@
 
 {-# LINE 1 "d:/haskell/Graphics/Win32/GDI/Text.chs" #-}{-# LANGUAGE ForeignFunctionInterface, DeriveGeneric #-}
 module Graphics.Win32.GDI.Text (drawTextEx,DTFormat (..), DrawTextParams (..)) where
-
+import Data.Bits
 import System.IO
 import Graphics.Win32 hiding (c_MessageBox, messageBox)
 import System.Win32

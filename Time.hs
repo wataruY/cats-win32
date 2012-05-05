@@ -20,5 +20,7 @@ fromCp932 s = do
 cp932 :: String -> IO String
 cp932 = fromCp932 >=> toU8 >=> return . B.unpack
 
+
+
 formattedTime :: IO String
 formattedTime = getZonedTime >>= return . formatTime defaultTimeLocale　"%Y年%_m月%_d日 %_H時%M分%S秒"

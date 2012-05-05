@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module Windows where
+module Windows (DTFormat (..), messageBox, drawText, drawText',defWindowClosure, withHDC , withPaint,postQuitMessage,c_DrawText) where
 import System.Win32 
 import Graphics.Win32 hiding (c_MessageBox,messageBox)
 import Graphics.Win32.GDI.Text
@@ -23,8 +23,16 @@ drawText hdc str rt f =
   withRECT rt $ \ lprect ->
   fmap fromIntegral . failIfZero "drawText" $ c_DrawText hdc pstr (fromIntegral n) lprect (fromIntegral $ fromEnum f)
 
+drawText' :: HDC -> String -> DTFormat -> IO (Int, RECT)
+drawText' hdc str f = 
+  withTStringLen str $ \ (pstr,n) ->
+  allocaRECT $ \ lprect -> do
+    pokeRECT lprect (0,0,0,0)
+    res <- fmap fromIntegral . failIfZero "drawText" $ c_DrawText hdc pstr (fromIntegral n) lprect (fromIntegral $ fromEnum f)
+    rt <- getRECT lprect
+    return (res,rt)
 
-foreign import stdcall safe "windows.h DrawTextW"
+foreign import stdcall unsafe "windows.h DrawTextW"
   c_DrawText :: HDC -> LPCTSTR -> INT -> LPRECT -> UINT -> IO Int
 
 

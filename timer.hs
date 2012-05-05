@@ -11,9 +11,13 @@ import Control.Monad.Trans.Resource
 import Data.Global
 import Data.IORef
 import Windows
+import Time
 
 hInstance :: IORef HINSTANCE
 hInstance = declareIORef "module instance" undefined
+
+globalC :: IORef String
+globalC = declareIORef "foo" ""
 
 main :: IO ()
 main = do
@@ -38,15 +42,16 @@ main' = do
   let (title, n) = ("タイマー", numToMaybe cW_USEDEFAULT)
   hwnd <- failIfNull "during create main window" $ createWindowEx
           wS_EX_OVERLAPPEDWINDOW mainWindow title wS_OVERLAPPEDWINDOW
-          n n n n
+          n n (Just 350) (Just 80)
          Nothing (Just menu)
          inst wndProc
 
   showWindow hwnd sW_SHOWNORMAL
-  oneShot hwnd
+  t <- oneShot hwnd
   updateWindow hwnd
 
   messageLoop
+  killThread t
 
 iDM_END :: MenuID
 iDM_END = 100
@@ -62,8 +67,9 @@ wndProc hwnd msg wp lp
     | msg == wM_PAINT = eraceClient hwnd >> return 0
     | msg == wM_COMMAND = handleMenu $ fromIntegral $ lOWORD wp
     | msg == wM_TIMER = do
-  res <- messageBox hwnd "タイマーを再発行しますか？" "タイマー終了の確認" mB_YESNO
-  when (res  == iDYES) $ oneShot hwnd
+  str <- formattedTime
+  writeIORef globalC str
+  invalidateRect (Just hwnd) Nothing True
   return 0
     | msg == wM_DESTROY = postQuitMessage 0 >> return 0
     | otherwise = defProc
@@ -72,10 +78,9 @@ wndProc hwnd msg wp lp
         handleMenu x | x == iDM_END = sendMessage hwnd wM_CLOSE 0 0 >> return 0
                      | otherwise = return 0
 
-oneShot :: HWND -> IO ()
+oneShot :: HWND -> IO ThreadId
 oneShot hwnd = do
-  forkIO $ threadDelay (3000 * 1000) >> sendMessage hwnd wM_TIMER 0 0 >> return ()
-  return ()
+  forkIO $ forever (threadDelay (1000 * 1000) >> sendMessage hwnd wM_TIMER 0 0) >> return ()
 
 eraceClient :: HWND -> IO ()
 eraceClient hwnd = do
@@ -83,6 +88,8 @@ eraceClient hwnd = do
   brush <- getStockBrush wHITE_BRUSH
   withPaint hwnd $ \ hdc _ -> do
       fillRect hdc rect brush
+      textOut hdc 0 0 =<< readIORef globalC
+      deleteBrush brush
       return ()
 
 messageLoop :: IO ()
