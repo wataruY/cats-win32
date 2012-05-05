@@ -76,7 +76,10 @@ wndProc :: WindowClosure
 wndProc hwnd msg wp lp
     | msg == wM_PAINT = showMyText hwnd >> return 0
     | msg == wM_COMMAND = handleMenu $ fromIntegral $ lOWORD wp
-    | msg == wM_CLOSE = destroyWindow hwnd >> return 0
+    | msg == wM_CLOSE = do
+  res <- messageBox hwnd "終了しますか？" "終了確認" (mB_OKCANCEL .|. mB_ICONQUESTION)
+  when (res == iDOK) $ destroyWindow hwnd
+  return 0
     | msg == wM_DESTROY = postQuitMessage 0 >> return 0
     | otherwise = defProc
   where defProc = defWindowProc (Just hwnd) msg wp lp
