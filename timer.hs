@@ -3,7 +3,7 @@ import Prelude hiding (id,(.))
 import Control.Category
 import Graphics.Win32 hiding (c_MessageBox, messageBox)
 import System.Win32
-
+import Control.Concurrent
 import Data.Bits
 import Control.Monad
 import Data.Maybe
@@ -34,75 +34,63 @@ main = do
        unsafeLiftIO main'
 
 mainWindow :: ClassName
-mainWindow = mkClassName "myWindowclass"
+mainWindow = mkClassName "timer"
 
 main' :: IO ()
 main' = do
   inst <- readIORef hInstance
   (menu, freeMenu) <- setupMenu
 
-  let (title, n) = ("猫でもわかるHaskell", numToMaybe cW_USEDEFAULT)
+  let (title, n) = ("タイマー", numToMaybe cW_USEDEFAULT)
   hwnd <- failIfNull "during create main window" $ createWindowEx
-          wS_EX_CLIENTEDGE mainWindow title wS_OVERLAPPEDWINDOW
+          wS_EX_OVERLAPPEDWINDOW mainWindow title wS_OVERLAPPEDWINDOW
           n n n n
          Nothing (Just menu)
          inst wndProc
 
   showWindow hwnd sW_SHOWNORMAL
+  oneShot hwnd >> return 0
   updateWindow hwnd
 
   messageLoop
 
-iDM_END,iDM_TEST,iDM_ABOUT :: MenuID
-(iDM_END,iDM_TEST,iDM_ABOUT) = (100,200,300)
+iDM_END :: MenuID
+iDM_END = 100
 
 setupMenu :: IO (HMENU, IO ())
 setupMenu = do
   menu <- createMenu
-  fileMenu <- do fileMenu <- createMenu
-                 appendMenu fileMenu 0 iDM_END "終了"
-                 appendMenu fileMenu 0 iDM_TEST "テスト"
-                 return fileMenu
-  helpMenu <- do helpMenu <- createMenu
-                 appendMenu helpMenu 0 iDM_ABOUT "About"
-                 return helpMenu
-  appendMenu menu 0x10 (handleToWord fileMenu) "ファイル"
-  appendMenu menu 0x10 (handleToWord helpMenu) "ヘルプ"
+  appendMenu menu 0 iDM_END "終了"
   return (menu, destroyMenu menu)
 
 
 
 wndProc :: WindowClosure
 wndProc hwnd msg wp lp
-    | msg == wM_PAINT = showMyText hwnd >> return 0
+    | msg == wM_PAINT = eraceClient hwnd >> return 0
     | msg == wM_COMMAND = handleMenu $ fromIntegral $ lOWORD wp
-    | msg == wM_CLOSE = do
-  res <- messageBox hwnd "終了しますか？" "終了確認" (mB_OKCANCEL .|. mB_ICONQUESTION)
-  when (res == iDOK) $ destroyWindow hwnd
+    | msg == wM_TIMER = do
+  res <- messageBox hwnd "タイマーを再発行しますか？" "タイマー終了の確認" mB_YESNO
+  when (res  == iDYES) $ oneShot hwnd
   return 0
     | msg == wM_DESTROY = postQuitMessage 0 >> return 0
     | otherwise = defProc
   where defProc = defWindowProc (Just hwnd) msg wp lp
         handleMenu :: MenuID -> IO LRESULT
         handleMenu x | x == iDM_END = sendMessage hwnd wM_CLOSE 0 0 >> return 0
-                     | x == iDM_TEST = messageBox hwnd "テストが押された" "test" mB_OK >> return 0
-                     | x == iDM_ABOUT = messageBox hwnd "Aboutが押された" "About" mB_OK >> return 0
                      | otherwise = return 0
 
-showMyText :: HWND -> IO ()
-showMyText hwnd = do
+oneShot :: HWND -> IO ()
+oneShot hwnd = do
+  forkIO $ threadDelay (3000 * 1000) >> sendMessage hwnd wM_TIMER 0 0 >> return ()
+  return ()
+
+eraceClient :: HWND -> IO ()
+eraceClient hwnd = do
   rect <- getClientRect hwnd
   brush <- getStockBrush wHITE_BRUSH
   withPaint hwnd $ \ hdc _ -> do
       fillRect hdc rect brush
-
-      setTextColor hdc $ rgb 255 0 0
-      textOut hdc 10 10 $ printf org (rect ^. leftL) ( rect ^. topL) (rect ^. rightL) (rect ^. bottomL)
-
-      setTextColor hdc $ rgb 0 0 255
-      let rect' = (leftL^%=(+40)) . (topL^%= (+40)) . (rightL^%= subtract 40) . (bottomL ^%= subtract 40) $ rect
-      drawText hdc str rect' DT_WORDBREAK
-
       return ()
       where str,org ::String
             str = "猫でもわかるHaskell\n山崎渉 制作\n" ++
