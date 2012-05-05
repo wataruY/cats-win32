@@ -1,6 +1,5 @@
 module Main where
-import Prelude hiding (id,(.))
-import Control.Category
+
 import Graphics.Win32 hiding (c_MessageBox, messageBox)
 import System.Win32
 import Control.Concurrent
@@ -11,12 +10,7 @@ import Control.Monad.Fix
 import Control.Monad.Trans.Resource
 import Data.Global
 import Data.IORef
-import Graphics.Win32.GDI.Text
 import Windows
-import Text.Printf
-import Data.Lens.Lazy
-import Util
-
 
 hInstance :: IORef HINSTANCE
 hInstance = declareIORef "module instance" undefined
@@ -39,7 +33,7 @@ mainWindow = mkClassName "timer"
 main' :: IO ()
 main' = do
   inst <- readIORef hInstance
-  (menu, freeMenu) <- setupMenu
+  (menu, _) <- setupMenu
 
   let (title, n) = ("タイマー", numToMaybe cW_USEDEFAULT)
   hwnd <- failIfNull "during create main window" $ createWindowEx
@@ -49,7 +43,7 @@ main' = do
          inst wndProc
 
   showWindow hwnd sW_SHOWNORMAL
-  oneShot hwnd >> return 0
+  oneShot hwnd
   updateWindow hwnd
 
   messageLoop
@@ -62,8 +56,6 @@ setupMenu = do
   menu <- createMenu
   appendMenu menu 0 iDM_END "終了"
   return (menu, destroyMenu menu)
-
-
 
 wndProc :: WindowClosure
 wndProc hwnd msg wp lp
@@ -92,10 +84,6 @@ eraceClient hwnd = do
   withPaint hwnd $ \ hdc _ -> do
       fillRect hdc rect brush
       return ()
-      where str,org ::String
-            str = "猫でもわかるHaskell\n山崎渉 制作\n" ++
-                  "わかりやすくてためになる!"
-            org = "left=%d top=%d right=%d bottom=%d"
 
 messageLoop :: IO ()
 messageLoop = allocaMessage $ fix $ \ doLoop msg ->
